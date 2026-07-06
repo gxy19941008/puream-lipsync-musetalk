@@ -67,9 +67,13 @@ def main() -> int:
         "--use_float16",
         "--batch_size", os.environ.get("MUSETALK_BATCH_SIZE", "4"),
     ]
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{repo_dir}:{existing_pythonpath}" if existing_pythonpath else str(repo_dir)
     completed = subprocess.run(
         command,
         cwd=str(repo_dir),
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,

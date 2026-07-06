@@ -24,6 +24,7 @@ RUN python3 -m pip install -r /app/requirements.txt
 RUN python3 -m pip install --no-cache-dir "setuptools==69.5.1" wheel openmim \
   && python3 -m mim install "mmcv==2.0.1" \
   && python3 -m mim install "mmdet==3.1.0" \
+  && python3 -m pip install --no-cache-dir --no-build-isolation "chumpy==0.70" \
   && python3 -m mim install "mmpose==1.1.0" \
   && python3 -m pip install --no-cache-dir --force-reinstall "numpy==1.26.4" "xtcocotools==1.14.3"
 

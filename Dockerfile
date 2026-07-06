@@ -26,6 +26,7 @@ RUN rm -rf /root/.cache/huggingface /root/.cache/pip /tmp/* /opt/MuseTalk/.git
 
 COPY app.py /app/app.py
 COPY musetalk_runner.py /app/musetalk_runner.py
+COPY puream_infer.py /opt/MuseTalk/puream_infer.py
 
 EXPOSE 9000
 CMD ["gunicorn", "-b", "0.0.0.0:9000", "--timeout", "1800", "--workers", "1", "app:app"]

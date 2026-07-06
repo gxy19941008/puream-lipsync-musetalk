@@ -18,7 +18,13 @@ class MuseTalkRunner:
         self._ensure_models()
         output_path = self.result_dir / f"{task_id}_musetalk.mp4"
         cmd = self._command(video_path, audio_path, str(output_path), task_id)
-        subprocess.run(cmd, check=True, cwd=str(self.repo_dir))
+        try:
+            subprocess.run(cmd, check=True, cwd=str(self.repo_dir), text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as exc:
+            output = (exc.stdout or "").strip()
+            if len(output) > 4000:
+                output = output[-4000:]
+            raise RuntimeError(f"MuseTalk inference failed: {output}") from exc
         produced = self._pick_output(output_path, task_id)
         if not produced:
             raise RuntimeError("MuseTalk finished but no output video was found")

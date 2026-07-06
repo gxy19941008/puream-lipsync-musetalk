@@ -18,6 +18,10 @@ RUN python3 -m pip install --upgrade pip setuptools wheel
 WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN python3 -m pip install -r /app/requirements.txt
+RUN python3 -m pip install --no-cache-dir -U openmim \
+  && python3 -m mim install "mmcv==2.0.1" \
+  && python3 -m mim install "mmdet==3.1.0" \
+  && python3 -m mim install "mmpose==1.1.0"
 
 RUN git clone --depth 1 https://github.com/TMElyralab/MuseTalk.git /opt/MuseTalk
 

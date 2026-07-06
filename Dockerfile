@@ -5,10 +5,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     MUSETALK_DIR=/opt/MuseTalk \
     MODEL_DIR=/models/MuseTalk \
+    HF_HOME=/tmp/huggingface \
     WORK_DIR=/tmp/puream-lipsync
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip git git-lfs ffmpeg curl ca-certificates \
+    python3 python3-pip git ffmpeg curl ca-certificates \
     libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
   && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /usr/share/locale/*
 
@@ -21,8 +22,7 @@ RUN python3 -m pip install -r /app/requirements.txt
 RUN git clone --depth 1 https://github.com/TMElyralab/MuseTalk.git /opt/MuseTalk
 
 COPY fetch_models.py /app/fetch_models.py
-RUN python3 /app/fetch_models.py \
-  && rm -rf /root/.cache/huggingface /root/.cache/pip /tmp/* /opt/MuseTalk/.git
+RUN rm -rf /root/.cache/huggingface /root/.cache/pip /tmp/* /opt/MuseTalk/.git
 
 COPY app.py /app/app.py
 COPY musetalk_runner.py /app/musetalk_runner.py

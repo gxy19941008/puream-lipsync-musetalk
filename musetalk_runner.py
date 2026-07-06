@@ -12,8 +12,10 @@ class MuseTalkRunner:
         self.model_dir = Path(os.environ.get("MODEL_DIR", "/models/MuseTalk"))
         self.result_dir = Path(os.environ.get("WORK_DIR", "/tmp/puream-lipsync")) / "results"
         self.result_dir.mkdir(parents=True, exist_ok=True)
+        self._models_ready = False
 
     def run(self, video_path: str, audio_path: str, task_id: str) -> str:
+        self._ensure_models()
         output_path = self.result_dir / f"{task_id}_musetalk.mp4"
         cmd = self._command(video_path, audio_path, str(output_path), task_id)
         subprocess.run(cmd, check=True, cwd=str(self.repo_dir))
@@ -49,6 +51,22 @@ class MuseTalkRunner:
         if "--model_dir" in args:
             cmd += ["--model_dir", str(self.model_dir)]
         return cmd
+
+    def _ensure_models(self):
+        if self._models_ready or self._model_dir_has_files():
+            self._models_ready = True
+            return
+        fetcher = Path("/app/fetch_models.py")
+        if not fetcher.exists():
+            raise FileNotFoundError("fetch_models.py not found")
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+        env = os.environ.copy()
+        env["MODEL_DIR"] = str(self.model_dir)
+        subprocess.run([sys.executable, str(fetcher)], check=True, env=env)
+        self._models_ready = True
+
+    def _model_dir_has_files(self):
+        return self.model_dir.exists() and any(self.model_dir.iterdir())
 
     def _find_inference_script(self) -> str:
         candidates = [

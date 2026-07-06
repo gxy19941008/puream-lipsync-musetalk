@@ -19,7 +19,9 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN python3 -m pip install -r /app/requirements.txt
 RUN python3 -m pip install --no-cache-dir "setuptools==69.5.1" wheel \
-  "mmengine==0.10.7" "mmcv-lite==2.0.1" "mmpose==1.1.0"
+  "mmengine==0.10.7" "mmcv-lite==2.0.1" json_tricks munkres xtcocotools \
+  && python3 -m pip install --no-cache-dir --no-build-isolation "chumpy==0.70" \
+  && python3 -m pip install --no-cache-dir --no-deps "mmpose==1.1.0"
 
 RUN git clone --depth 1 https://github.com/TMElyralab/MuseTalk.git /opt/MuseTalk
 

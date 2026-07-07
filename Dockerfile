@@ -5,7 +5,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     MUSETALK_DIR=/opt/MuseTalk \
     MODEL_DIR=/models/MuseTalk \
-    HF_ENDPOINT=https://hf-mirror.com \
     HF_HOME=/tmp/huggingface \
     WORK_DIR=/tmp/puream-lipsync
 
@@ -32,12 +31,11 @@ RUN python3 -m pip install --no-cache-dir "setuptools==69.5.1" wheel openmim \
 RUN git clone --depth 1 https://github.com/TMElyralab/MuseTalk.git /opt/MuseTalk
 
 COPY fetch_models.py /app/fetch_models.py
-RUN python3 /app/fetch_models.py \
-  && rm -rf /root/.cache/huggingface /root/.cache/pip /tmp/* /opt/MuseTalk/.git
+RUN rm -rf /root/.cache/huggingface /root/.cache/pip /tmp/* /opt/MuseTalk/.git
 
 COPY app.py /app/app.py
 COPY musetalk_runner.py /app/musetalk_runner.py
 COPY puream_infer.py /opt/MuseTalk/puream_infer.py
 
 EXPOSE 9000
-CMD ["gunicorn", "-b", "0.0.0.0:9000", "--timeout", "7200", "--workers", "1", "app:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:9000", "--timeout", "1800", "--workers", "1", "app:app"]

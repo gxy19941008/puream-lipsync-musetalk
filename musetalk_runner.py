@@ -72,7 +72,19 @@ class MuseTalkRunner:
         self._models_ready = True
 
     def _model_dir_has_files(self):
-        return self.model_dir.exists() and any(self.model_dir.iterdir())
+        required = [
+            "musetalkV15/musetalk.json",
+            "musetalkV15/unet.pth",
+            "sd-vae/config.json",
+            "sd-vae/diffusion_pytorch_model.bin",
+            "whisper/config.json",
+            "whisper/pytorch_model.bin",
+            "whisper/preprocessor_config.json",
+            "dwpose/dw-ll_ucoco_384.pth",
+            "face-parse-bisent/79999_iter.pth",
+            "face-parse-bisent/resnet18-5c106cde.pth",
+        ]
+        return self.model_dir.exists() and all((self.model_dir / item).exists() for item in required)
 
     def _find_inference_script(self) -> str:
         candidates = [

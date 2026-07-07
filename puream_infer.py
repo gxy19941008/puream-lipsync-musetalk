@@ -36,6 +36,87 @@ def write_inference_config(path: Path, video: str, audio: str, output_name: str)
     )
 
 
+def patch_official_inference(repo_dir: Path) -> None:
+    script = repo_dir / "scripts" / "inference.py"
+    marker = "# PUREAM continuous-frame patch"
+    text = script.read_text(encoding="utf-8")
+    if marker in text:
+        return
+
+    old_loop = """            # Pad generated images to original video size
+            print("Padding generated images to original video size")
+            for i, res_frame in enumerate(tqdm(res_frame_list)):
+                bbox = coord_list_cycle[i%(len(coord_list_cycle))]
+                ori_frame = copy.deepcopy(frame_list_cycle[i%(len(frame_list_cycle))])
+                x1, y1, x2, y2 = bbox
+                if args.version == "v15":
+                    y2 = y2 + args.extra_margin
+                    y2 = min(y2, frame.shape[0])
+                try:
+                    res_frame = cv2.resize(res_frame.astype(np.uint8), (x2-x1, y2-y1))
+                except:
+                    continue
+                
+                # Merge results with version-specific parameters
+                if args.version == "v15":
+                    combine_frame = get_image(ori_frame, res_frame, [x1, y1, x2, y2], mode=args.parsing_mode, fp=fp)
+                else:
+                    combine_frame = get_image(ori_frame, res_frame, [x1, y1, x2, y2], fp=fp)
+                cv2.imwrite(f"{result_img_save_path}/{str(i).zfill(8)}.png", combine_frame)
+"""
+    new_loop = f"""            # Pad generated images to original video size
+            print("Padding generated images to original video size")
+            {marker}: keep the image sequence gapless. ffmpeg stops at the first
+            # missing %08d.png frame, so a single failed bbox/resize used to truncate
+            # the whole output to a few frames.
+            for i in tqdm(range(video_num)):
+                bbox = coord_list_cycle[i%(len(coord_list_cycle))]
+                ori_frame = copy.deepcopy(frame_list_cycle[i%(len(frame_list_cycle))])
+                combine_frame = ori_frame
+                if bbox != coord_placeholder and i < len(res_frame_list):
+                    x1, y1, x2, y2 = bbox
+                    if args.version == "v15":
+                        y2 = y2 + args.extra_margin
+                        y2 = min(y2, ori_frame.shape[0])
+                    try:
+                        res_frame = cv2.resize(res_frame_list[i].astype(np.uint8), (x2-x1, y2-y1))
+                        # Merge results with version-specific parameters
+                        if args.version == "v15":
+                            combine_frame = get_image(ori_frame, res_frame, [x1, y1, x2, y2], mode=args.parsing_mode, fp=fp)
+                        else:
+                            combine_frame = get_image(ori_frame, res_frame, [x1, y1, x2, y2], fp=fp)
+                    except Exception as frame_error:
+                        print(f"PUREAM frame fallback {{i}}: {{frame_error}}")
+                cv2.imwrite(f"{{result_img_save_path}}/{{str(i).zfill(8)}}.png", combine_frame)
+"""
+    if old_loop not in text:
+        raise RuntimeError("Unable to patch MuseTalk inference frame loop")
+    text = text.replace(old_loop, new_loop)
+
+    old_mux = """            cmd_combine_audio = f"ffmpeg -y -v warning -i {audio_path} -i {temp_vid_path} {output_vid_name}"
+"""
+    new_mux = """            cmd_combine_audio = f"ffmpeg -y -v warning -i {temp_vid_path} -i {audio_path} -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -shortest {output_vid_name}"
+"""
+    if old_mux not in text:
+        raise RuntimeError("Unable to patch MuseTalk audio mux command")
+    text = text.replace(old_mux, new_mux)
+    script.write_text(text, encoding="utf-8")
+
+
+def media_duration(path: Path) -> float:
+    completed = subprocess.run(
+        [
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", str(path),
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=True,
+    )
+    return float(completed.stdout.strip())
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--video", required=True)
@@ -48,6 +129,7 @@ def main() -> int:
     work_dir = Path(os.environ.get("WORK_DIR", "/tmp/puream-lipsync")) / "puream_infer"
     work_dir.mkdir(parents=True, exist_ok=True)
     ensure_model_link(repo_dir, model_dir)
+    patch_official_inference(repo_dir)
 
     output_path = Path(args.output)
     output_name = output_path.name
@@ -89,6 +171,15 @@ def main() -> int:
         return 1
     if produced != output_path:
         shutil.copyfile(produced, output_path)
+    expected_duration = min(media_duration(Path(args.video)), media_duration(Path(args.audio)))
+    produced_duration = media_duration(output_path)
+    if produced_duration + 0.5 < expected_duration * 0.9:
+        print(completed.stdout)
+        print(
+            "Output duration too short: "
+            f"expected_about={expected_duration:.3f}s produced={produced_duration:.3f}s"
+        )
+        return 1
     return 0
 
 
